@@ -17,7 +17,7 @@ const CustomDataGraph = ({ sensorType = "temperature" }) => {
   const [showPresets, setShowPresets] = useState(false);
 
   // Value filtering states
-  const [showValueFilter, setShowValueFilter] = useState(false);
+  const [showValueFilter, setShowValueFilter] = useState(false); 
   const [valueFilter, setValueFilter] = useState({
     minValue: "",
     maxValue: "",
@@ -193,6 +193,9 @@ const CustomDataGraph = ({ sensorType = "temperature" }) => {
       setError("Please select both from and to date-time");
       return;
     }
+
+    console.log(dateRange);
+    
 
     try {
       setLoading(true);

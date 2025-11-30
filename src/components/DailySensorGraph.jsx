@@ -118,68 +118,163 @@ const DailySensorGraph = ({ sensorType = "temperature", onViewCustomRange }) => 
     };
   };
 
-  const fetchDailyData = async () => {
+  // const fetchDailyData = async () => {
+  //   try {
+  //     setLoading(true);
+  //     setError(null);
+
+  //     // console.log(`🔄 Fetching daily data for ${sensorType}...`);
+
+  //     const response = await axios.get(
+  //       `${API_BASE_URL}/api/sensors/daily`,
+  //       {
+  //         timeout: 10000 // 10 second timeout
+  //       }
+  //     );
+
+  //     // console.log("📊 Daily API Response:", response.data);
+
+  //     // if (!response.data || !response.data.data || !Array.isArray(response.data.data)) {
+  //     //   throw new Error("Invalid response format from API");
+  //     // }
+
+  //     if (!response.data || response.data.totalRecords === 0) {
+  //       await fetchCustomRangeData()
+  //     }
+
+  //     setApiInfo({
+  //       currentTime: response.data.currentTime,
+  //       currentTimeString: response.data.currentTimeString,
+  //       currentTimeIST: response.data.currentTimeIST,
+  //       date: response.data.date,
+  //       totalRecords: response.data.totalRecords,
+  //       processedRecords: response.data.processedRecords,
+  //       skippedFutureRecords: response.data.skippedFutureRecords,
+  //       dataPoints: response.data.dataPoints,
+  //       timezone: response.data.timezone,
+  //       debug: response.data.debug,
+  //     });
+
+  //     const allData = response.data.data;
+  //     const currentIST = getCurrentISTTime();
+
+  //     const validData = allData.filter((d) => {
+  //       const value = d[sensorType];
+  //       const hasValidValue =
+  //         value !== null &&
+  //         value !== undefined &&
+  //         !isNaN(parseFloat(value)); // Only check if it's a valid number
+
+  //       const isNotInFuture = d.timeValue <= currentIST.timeInMinutes;
+  //       return hasValidValue && isNotInFuture;
+  //     });
+
+  //     // console.log(`✅ Filtered valid data for ${sensorType}:`, validData.length, "points");
+
+  //     setDailyData(validData);
+  //     setStatistics(calculateStatistics(validData));
+  //     setLoading(false);
+  //   } catch (err) {
+  //     console.error(`❌ Error fetching ${sensorType} data:`, err.message);
+  //     setError(`Failed to load ${config.label} data: ${err.message}`);
+  //     setLoading(false);
+  //   }
+  // };
+
+  const getCustomRangeData = async () => {
+    const fromDate = new Date("2025-09-01T00:00:00");
+    const toDate = new Date("2025-09-30T00:00:00");
+
+    const params = new URLSearchParams({
+      fromDate: fromDate.toISOString().split('T')[0],
+      fromTime: fromDate.toTimeString().split(' ')[0],
+      toDate: toDate.toISOString().split('T')[0],
+      toTime: toDate.toTimeString().split(' ')[0],
+      intervalMinutes: 5
+    });
+
+    const response = await fetch(
+      `https://api.geolook.in/api/sensors/custom-range?${params}`
+    );
+
+    if (!response.ok) throw new Error("Custom range API failed");
+
+    const json = await response.json();
+    if (!json.data) return [];
+
+    return json;
+  };
+
+  const getDailyData = async () => {
+    const response = await axios.get(`${API_BASE_URL}/api/sensors/daily`, {
+      timeout: 10000,
+    });
+
+    if (!response.data) return null;
+    if (response.data.totalRecords === 0) return null; // indicates fallback needed
+
+    return response.data;
+  };
+
+  const fetchSensorData = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      console.log(`🔄 Fetching daily data for ${sensorType}...`);
+      // 1) Try DAILY first
+      let daily = await getDailyData();
 
-      const response = await axios.get(
-        `${API_BASE_URL}/api/sensors/daily`,
-        {
-          timeout: 10000 // 10 second timeout
-        }
-      );
+      let finalData = null;
+      let apiInfo = null;
 
-      console.log("📊 Daily API Response:", response.data);
+      if (daily) {
+        // Daily API returned valid data
+        apiInfo = {
+          currentTime: daily.currentTime,
+          currentTimeString: daily.currentTimeString,
+          currentTimeIST: daily.currentTimeIST,
+          date: daily.date,
+          totalRecords: daily.totalRecords,
+          processedRecords: daily.processedRecords,
+          skippedFutureRecords: daily.skippedFutureRecords,
+          dataPoints: daily.dataPoints,
+          timezone: daily.timezone,
+          debug: daily.debug,
+        };
 
-      if (!response.data || !response.data.data || !Array.isArray(response.data.data)) {
-        throw new Error("Invalid response format from API");
+        const currentIST = getCurrentISTTime();
+        finalData = daily.data.filter((d) => {
+          const value = d[sensorType];
+          return value != null && !isNaN(parseFloat(value)) && d.timeValue <= currentIST.timeInMinutes;
+        });
+      } 
+      
+      else {
+        // 2) DAILY has nothing → fallback to CUSTOM RANGE
+        const custom = await getCustomRangeData();
+
+        apiInfo = custom;
+        finalData = custom.data.filter((d) => {
+          const value = d[sensorType];
+          return value != null && value !== "0.00" && parseFloat(value) !== 0;
+        });
       }
 
-      setApiInfo({
-        currentTime: response.data.currentTime,
-        currentTimeString: response.data.currentTimeString,
-        currentTimeIST: response.data.currentTimeIST,
-        date: response.data.date,
-        totalRecords: response.data.totalRecords,
-        processedRecords: response.data.processedRecords,
-        skippedFutureRecords: response.data.skippedFutureRecords,
-        dataPoints: response.data.dataPoints,
-        timezone: response.data.timezone,
-        debug: response.data.debug,
-      });
-
-      const allData = response.data.data;
-      const currentIST = getCurrentISTTime();
-
-      const validData = allData.filter((d) => {
-        const value = d[sensorType];
-        const hasValidValue =
-          value !== null &&
-          value !== undefined &&
-          !isNaN(parseFloat(value)); // Only check if it's a valid number
-
-        const isNotInFuture = d.timeValue <= currentIST.timeInMinutes;
-        return hasValidValue && isNotInFuture;
-      });
-
-      console.log(`✅ Filtered valid data for ${sensorType}:`, validData.length, "points");
-
-      setDailyData(validData);
-      setStatistics(calculateStatistics(validData));
+      // Update UI state only once
+      setApiInfo(apiInfo);
+      setDailyData(finalData);
+      setStatistics(calculateStatistics(finalData)); // optional
       setLoading(false);
+
     } catch (err) {
-      console.error(`❌ Error fetching ${sensorType} data:`, err.message);
-      setError(`Failed to load ${config.label} data: ${err.message}`);
+      setError(`Failed to load ${config.label}: ${err.message}`);
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchDailyData();
-    const interval = setInterval(fetchDailyData, 60000);
+    fetchSensorData();
+    const interval = setInterval(fetchSensorData, 60000);
     return () => clearInterval(interval);
   }, [sensorType]);
 
@@ -241,7 +336,7 @@ const DailySensorGraph = ({ sensorType = "temperature", onViewCustomRange }) => 
         <div className="text-red-400 mb-2 text-center">{error}</div>
         <div className="flex space-x-2">
           <button
-            onClick={fetchDailyData}
+            onClick={fetchSensorData}
             className="px-4 py-2 bg-red-600 text-white rounded text-sm hover:bg-red-700"
           >
             Retry
@@ -273,7 +368,7 @@ const DailySensorGraph = ({ sensorType = "temperature", onViewCustomRange }) => 
         </div>
         <div className="flex space-x-2">
           <button
-            onClick={fetchDailyData}
+            onClick={fetchSensorData}
             className="px-4 py-2 bg-yellow-600 text-white rounded text-sm hover:bg-yellow-700"
           >
             Refresh
@@ -296,8 +391,8 @@ const DailySensorGraph = ({ sensorType = "temperature", onViewCustomRange }) => 
     datasets: [
       {
         label: `${config.label} (${config.unit})`,
-        data: dailyData.map((d) => ({
-          x: timeToPosition(d.timeValue),
+        data: dailyData.map((d, index) => ({
+          x: index,
           y: parseFloat(d[sensorType] || 0),
           rawData: d,
         })),
@@ -389,7 +484,7 @@ const DailySensorGraph = ({ sensorType = "temperature", onViewCustomRange }) => 
         grid: { color: "rgba(0, 255, 255, 0.1)" },
         title: {
           display: true,
-          text: `Time (24 Hour IST) - Current: ${currentIST.timeString} (${currentIST.dateString})`,
+          text: `Time (24 Hour IST) - Current: ${apiInfo?.query?.toDate ? apiInfo.query?.toDate : ""} ${apiInfo?.debug?.todayDate ? apiInfo.debug?.todayDate : ""} ${apiInfo?.debug?.todayDate ? `( dailyData?.currentTime})`  : ""}`,
           color: "#00FFFF",
           font: { size: 11 },
         },
@@ -419,7 +514,7 @@ const DailySensorGraph = ({ sensorType = "temperature", onViewCustomRange }) => 
       <div className="flex justify-between items-center mb-4">
         <div className="flex items-center space-x-4">
           <h2 className="text-cyan-400 text-lg">
-            {config.label} - {apiInfo.date || currentIST.dateString}
+            {config.label} - {apiInfo.query?.toDate || currentIST.dateString}
           </h2>
           {showStatistics && (
             <div className="flex items-center space-x-4 text-sm">

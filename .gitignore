@@ -8,6 +8,7 @@ package-lock.json
 
 public/models
 geolook-dist/models
+dist/
 
 # testing
 /coverage
