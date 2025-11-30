@@ -24,7 +24,7 @@ function App() {
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (token) {
-      fetch("http://localhost:7000/api/auth/verify", {
+      fetch("https://api.geolook.in/api/auth/verify", {
         headers: { Authorization: `Bearer ${token}` },
       })
         .then((res) => (res.ok ? res.json() : Promise.reject()))

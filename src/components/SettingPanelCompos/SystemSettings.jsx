@@ -93,7 +93,7 @@ const recommendedValues = {
 };
 
   // API Base URL - adjust according to your backend
-  const API_BASE_URL = "http://localhost:7000/api";
+  const API_BASE_URL = "https://api.geolook.in/api";
 
   // Get auth token from localStorage with validation
   const getAuthToken = () => {

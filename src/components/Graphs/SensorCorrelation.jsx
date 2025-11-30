@@ -190,6 +190,7 @@ const SensorCorrelation = () => {
       };
 
       const response = await axios.get('/api/sensors/correlation', { params });
+      
       setData(response.data);
     } catch (err) {
       console.error('Error fetching correlation data:', err);
@@ -198,6 +199,60 @@ const SensorCorrelation = () => {
       setLoading(false);
     }
   };
+
+  // const fetchCorrelationData = async () => {
+  //   setLoading(true);
+  //   setError('');
+  //   setFilteredData(null);
+
+  //   try {
+  //     const tryFetch = async (from, to) => {
+  //       const params = {
+  //         sensor1,
+  //         sensor2,
+  //         startDate: from.toISOString().split('T')[0] + ' ' + from.toISOString().split('T')[1].split('.')[0],
+  //         endDate: to.toISOString().split('T')[0] + ' ' + to.toISOString().split('T')[1].split('.')[0],
+  //         intervalMinutes: dateRange.intervalMinutes,
+  //       };
+
+  //       const res = await axios.get('/api/sensors/correlation', { params });
+  //       return res.data;
+  //     };
+
+  //     // Dates from UI (yesterday → now)
+  //     const primaryFrom = new Date(dateRange.fromDateTime);
+  //     const primaryTo = new Date(dateRange.toDateTime);
+
+  //     // Fallback (Sept 1 → now)
+  //     const fallbackFrom = new Date('2025-09-01T00:00:00');
+  //     const fallbackTo = new Date();
+
+  //     // Step 1: Try yesterday → now
+  //     let result = await tryFetch(primaryFrom, primaryTo);
+
+  //     // Step 2: If no data returned → try fallback
+  //     if (!result || result.length === 0) {
+  //       console.log("No data for yesterday → now. Fetching from September 1 instead...");
+  //       result = await tryFetch(fallbackFrom, fallbackTo);
+
+  //       // Also update the UI visible date range to reflect fallback
+  //       setDateRange({
+  //         fromDateTime: fallbackFrom.toISOString().slice(0,19),
+  //         toDateTime: fallbackTo.toISOString().slice(0,19),
+  //         intervalMinutes: '5',
+  //       });
+  //     }
+
+  //     setData(result);
+
+  //   } catch (err) {
+  //     console.error('Error fetching correlation data:', err);
+  //     setError(err.response?.data?.error || 'Failed to fetch data');
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
+
 
   const handleInputChange = (field, value) => {
     setDateRange(prev => ({

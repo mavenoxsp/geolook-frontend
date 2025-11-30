@@ -20,7 +20,7 @@ export default function Register({ setUser }) {
   const [canResend, setCanResend] = useState(false);
 
   // Base API URL
-  const BASE_API_URL = 'http://localhost:7000/api/auth';
+  const BASE_API_URL = 'https://api.geolook.in/api/auth';
 
   const logo1Url = "https://res.cloudinary.com/dkoqcp1g9/image/upload/v1750591433/Geolook-Logo_wyuybf.png";
   const logo2Url = "https://res.cloudinary.com/dkoqcp1g9/image/upload/v1750621233/Logo_qytjcp.png";

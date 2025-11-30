@@ -42,7 +42,7 @@ export default function DashboardPanel() {
       </motion.div>
 
       {/* Alerts */}
-      <motion.div
+      {/* <motion.div
         className="px-4 mt-6 mb-10 w-full"
         variants={slideIn(0.1)}
         initial="hidden"
@@ -52,10 +52,10 @@ export default function DashboardPanel() {
         <div className="w-full max-w-7xl mx-auto">
           <AlertItemList />
         </div>
-      </motion.div>
+      </motion.div> */}
 
       {/* Analytics */}
-      <motion.div
+      {/* <motion.div
         className="w-full px-4"
         variants={slideIn(0.2)}
         initial="hidden"
@@ -65,10 +65,10 @@ export default function DashboardPanel() {
         <div className="max-w-7xl mx-auto">
           <AnalyticsPanel />
         </div>
-      </motion.div>
+      </motion.div> */}
 
       {/* Environmental Data */}
-      <motion.div
+      {/* <motion.div
         className="w-full px-4 mt-10"
         variants={slideIn(0.3)}
         initial="hidden"
@@ -78,10 +78,10 @@ export default function DashboardPanel() {
         <div className="max-w-7xl mx-auto">
           <EnvDataPanel />
         </div>
-      </motion.div>
+      </motion.div> */}
 
       {/* Sensor Table */}
-      <motion.div
+      {/* <motion.div
         className="w-full px-4 mt-10 overflow-x-auto"
         variants={slideIn(0.4)}
         initial="hidden"
@@ -91,7 +91,7 @@ export default function DashboardPanel() {
         <div className="max-w-7xl mx-auto">
           <SensorPanel />
         </div>
-      </motion.div>
+      </motion.div> */}
 
       {/* Dual Chart Section */}
       <motion.div
@@ -110,7 +110,7 @@ export default function DashboardPanel() {
       </motion.div>
 
       {/* Maintenance */}
-      <motion.div
+      {/* <motion.div
         className="w-full px-4 mt-10"
         variants={slideIn(0.6)}
         initial="hidden"
@@ -120,7 +120,7 @@ export default function DashboardPanel() {
         <div className="max-w-7xl mx-auto">
           <MaintenancePanel />
         </div>
-      </motion.div>
+      </motion.div> */}
     </div>
   );
 }

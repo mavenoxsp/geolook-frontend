@@ -13,8 +13,8 @@ export const SensorProvider1 = ({ children }) => {
   const [socket, setSocket] = useState(null);
 
   // Configuration
-  const API_BASE_URL = "http://localhost:7000";
-  const SOCKET_URL = "http://localhost:7000";
+  const API_BASE_URL = "https://api.geolook.in";
+  const SOCKET_URL = "https://api.geolook.in";
 
   // Transform sensor data from API format to component format
   const transformSensorData = (sensorData) => {
