@@ -4,12 +4,26 @@ import { OrbitControls, Html, useGLTF, TransformControls } from "@react-three/dr
 import * as THREE from "three";
 import axios from "../utils/axios";
 import { useSensors } from "../context/SensorContext1";
+import { XR, createXRStore } from "@react-three/xr";
 
-// -------- Bridge Model ----------
+if (THREE.Material && !THREE.Material.prototype._patchedOnBuild) {
+  const originalOnBuild = THREE.Material.prototype.onBuild;
+  THREE.Material.prototype.onBuild = function (...args) {
+    if (typeof originalOnBuild === "function") {
+      return originalOnBuild.apply(this, args);
+    }
+    return null;
+  };
+  THREE.Material.prototype._patchedOnBuild = true;
+}
+
+
+const xrStore = createXRStore();
+
 function BridgeModel({ position }) {
   const { scene } = useGLTF("/models/railway_bridge_with_a_feeling_of_coziness.glb");
   return (
-    <group position={position} scale={25}>
+    <group position={position} scale={1}>
       <primitive object={scene.clone()} />
     </group>
   );
@@ -187,6 +201,7 @@ export default function SensorMapView() {
   const { sensors, metaData } = useSensors();
   const [sensorDraggable, setSensorDraggable] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const canvasRef = useRef();
 
   // Default positions (used as fallback)
   const defaultPositions = {
@@ -268,17 +283,24 @@ export default function SensorMapView() {
       >
         {sensorDraggable ? "Lock Sensor Position" : "Change Sensor Position"}
       </button>
+      {/* <button onClick={() => xrStore.enterVR()} className="absolute top-4 left-[20%] border-2 px-4 py-2 rounded-xl text-lg font-semibold hover:cursor-pointer">
+        Enter VR
+      </button> */}
 
       <div className="absolute top-4 right-4 bg-blue-600 text-white px-3 py-2 rounded shadow-lg z-10 font-mono text-sm">
         <div>Last Update: {metaData?.ts_server || "No data"}</div>
         <div>Sensors: {sensors.length}</div>
       </div>
 
-      <Canvas camera={{ position: [8, 8, 12], fov: 50 }}>
-        <ambientLight intensity={0.6} />
-        <directionalLight position={[10, 10, 5]} intensity={1.2} />
+      <Canvas ref={canvasRef} camera={{ position: [8, 8, 12], fov: 50 }} onCreated={({ scene }) => {canvasRef.current = { scene };}}>
+        <XR store={xrStore}
+          hideControllers
+          controllers={false}
+          hands={false}>
+          <ambientLight intensity={0.6} />
+          <directionalLight position={[10, 10, 5]} intensity={1.2} />
 
-        <Suspense fallback={null}>
+          {/* <Suspense fallback={null}> */}
           <BridgeModel position={[0, 0, 0]} />
 
           {Object.entries(sensorPositions).map(([sensorId, pos]) => {
@@ -296,13 +318,14 @@ export default function SensorMapView() {
               />
             );
           })}
-        </Suspense>
+          {/* </Suspense> */}
 
-        <OrbitControls
-          enableZoom
-          enablePan
-          enableRotate={!sensorDraggable || !isDragging}
-        />
+          <OrbitControls
+            enableZoom
+            enablePan
+            enableRotate={!sensorDraggable || !isDragging}
+          />
+        </XR>
       </Canvas>
     </div>
   );
