@@ -1,5 +1,5 @@
 import React, { Suspense, useRef, useState, useEffect, useMemo } from "react";
-import { Canvas, useFrame } from "@react-three/fiber";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls, Html, useGLTF, TransformControls } from "@react-three/drei";
 import * as THREE from "three";
 import axios from "../utils/axios";
@@ -7,9 +7,20 @@ import { useSensors } from "../context/SensorContext1";
 
 // -------- Bridge Model ----------
 function BridgeModel({ position }) {
-  const { scene } = useGLTF("/models/railway_bridge_with_a_feeling_of_coziness.glb");
+  const { scene } = useGLTF("/models/image3.glb");
+
+  // Enable shadows for a bit more depth in VR/AR
+  useEffect(() => {
+    scene.traverse((obj) => {
+      if (obj.isMesh) {
+        obj.castShadow = true;
+        obj.receiveShadow = true;
+      }
+    });
+  }, [scene]);
+
   return (
-    <group position={position} scale={25}>
+    <group position={position} scale={0.1}>
       <primitive object={scene.clone()} />
     </group>
   );
@@ -182,11 +193,63 @@ function SensorMarker({ pos, sensor, time, sensorDraggable, setIsDragging, updat
   return sensorMesh;
 }
 
+// -------- Simple VR locomotion (thumbstick) ----------
+function VRLocomotion({ isXrPresenting, xrMode, speed = 3 }) {
+  const { gl } = useThree();
+  const moveVec = useRef(new THREE.Vector3());
+  const tmpDir = useRef(new THREE.Vector3());
+  const tmpStrafe = useRef(new THREE.Vector3());
+
+  useFrame((_, delta) => {
+    if (!isXrPresenting || xrMode !== "vr") return;
+
+    const session = gl.xr.getSession();
+    if (!session) return;
+
+    // Prefer left controller stick for movement; fall back to any gamepad
+    const sources = Array.from(session.inputSources || []);
+    const source =
+      sources.find((s) => s?.handedness === "left" && s.gamepad) ||
+      sources.find((s) => s?.gamepad);
+
+    const axes = source?.gamepad?.axes;
+    if (!axes || axes.length < 2) return;
+
+    const [xAxis, yAxis] = axes;
+    if (Math.abs(xAxis) < 0.15 && Math.abs(yAxis) < 0.15) return; // deadzone
+
+    const xrCamera = gl.xr.getCamera();
+    const rig = xrCamera.parent;
+    if (!rig) return;
+
+    // Forward is where the headset looks; ignore vertical tilt
+    xrCamera.getWorldDirection(tmpDir.current);
+    tmpDir.current.y = 0;
+    if (tmpDir.current.lengthSq() === 0) return;
+    tmpDir.current.normalize();
+
+    tmpStrafe.current.crossVectors(new THREE.Vector3(0, 1, 0), tmpDir.current).normalize();
+
+    moveVec.current.set(0, 0, 0);
+    moveVec.current.addScaledVector(tmpDir.current, -yAxis * speed * delta);
+    moveVec.current.addScaledVector(tmpStrafe.current, -xAxis * speed * delta);
+
+    rig.position.add(moveVec.current);
+  });
+
+  return null;
+}
+
 // -------- Main Component ----------
 export default function SensorMapView() {
   const { sensors, metaData } = useSensors();
   const [sensorDraggable, setSensorDraggable] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [renderer, setRenderer] = useState(null);
+  const [isXrPresenting, setIsXrPresenting] = useState(false);
+  const [xrMode, setXrMode] = useState(null);
+  const [vrSupported, setVrSupported] = useState(false);
+  const [arSupported, setArSupported] = useState(false);
 
   // Default positions (used as fallback)
   const defaultPositions = {
@@ -252,6 +315,55 @@ export default function SensorMapView() {
     return map;
   }, [sensors]);
 
+  // XR capability + session tracking
+  useEffect(() => {
+    if (!renderer || !navigator?.xr) return;
+    let mounted = true;
+
+    navigator.xr.isSessionSupported("immersive-vr").then((supported) => {
+      if (mounted) setVrSupported(supported);
+    }).catch(() => {});
+
+    navigator.xr.isSessionSupported("immersive-ar").then((supported) => {
+      if (mounted) setArSupported(supported);
+    }).catch(() => {});
+
+    const handleStart = () => setIsXrPresenting(true);
+    const handleEnd = () => {
+      setIsXrPresenting(false);
+      setXrMode(null);
+    };
+
+    renderer.xr.addEventListener("sessionstart", handleStart);
+    renderer.xr.addEventListener("sessionend", handleEnd);
+
+    return () => {
+      mounted = false;
+      renderer.xr.removeEventListener("sessionstart", handleStart);
+      renderer.xr.removeEventListener("sessionend", handleEnd);
+    };
+  }, [renderer]);
+
+  const toggleXR = async (mode) => {
+    if (!renderer || !navigator?.xr) return;
+
+    // Exit any running XR session
+    if (renderer.xr.isPresenting) {
+      await renderer.xr.getSession()?.end();
+      return;
+    }
+
+    try {
+      const session = await navigator.xr.requestSession(`immersive-${mode}`, {
+        optionalFeatures: ["local-floor", "bounded-floor", "hand-tracking"],
+      });
+      await renderer.xr.setSession(session);
+      setXrMode(mode);
+    } catch (err) {
+      console.error(`Unable to start ${mode.toUpperCase()} session:`, err);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="h-screen w-full bg-black flex items-center justify-center">
@@ -274,12 +386,45 @@ export default function SensorMapView() {
         <div>Sensors: {sensors.length}</div>
       </div>
 
-      <Canvas camera={{ position: [8, 8, 12], fov: 50 }}>
+      <Canvas
+        shadows
+        camera={{ position: [8, 8, 12], fov: 50 }}
+        onCreated={({ gl }) => {
+          gl.xr.enabled = true;
+          gl.xr.setReferenceSpaceType("local-floor");
+          gl.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+          gl.shadowMap.enabled = true;
+          gl.shadowMap.type = THREE.PCFSoftShadowMap;
+          setRenderer(gl);
+        }}
+      >
+        <color attach="background" args={["#0f172a"]} />
         <ambientLight intensity={0.6} />
-        <directionalLight position={[10, 10, 5]} intensity={1.2} />
+        <hemisphereLight args={["#d1e9ff", "#0b1224", 0.35]} />
+        <directionalLight
+          position={[10, 15, 8]}
+          intensity={1.2}
+          castShadow
+          shadow-mapSize-width={2048}
+          shadow-mapSize-height={2048}
+          shadow-camera-near={1}
+          shadow-camera-far={50}
+        />
 
         <Suspense fallback={null}>
           <BridgeModel position={[0, 0, 0]} />
+
+          {/* Ground for VR presence; hidden in AR to avoid floating plane */}
+          {xrMode !== "ar" && (
+            <mesh
+              rotation={[-Math.PI / 2, 0, 0]}
+              position={[0, -0.1, 0]}
+              receiveShadow
+            >
+              <planeGeometry args={[200, 200]} />
+              <meshStandardMaterial color="#111826" roughness={0.9} metalness={0.05} />
+            </mesh>
+          )}
 
           {Object.entries(sensorPositions).map(([sensorId, pos]) => {
             const sensor = sensorsById.get(sensorId);
@@ -299,11 +444,38 @@ export default function SensorMapView() {
         </Suspense>
 
         <OrbitControls
-          enableZoom
-          enablePan
-          enableRotate={!sensorDraggable || !isDragging}
+          enableZoom={!isXrPresenting}
+          enablePan={!isXrPresenting}
+          enableRotate={!isXrPresenting && (!sensorDraggable || !isDragging)}
         />
+
+        <VRLocomotion isXrPresenting={isXrPresenting} xrMode={xrMode} speed={4} />
       </Canvas>
+
+      <div className="absolute bottom-4 left-4 flex gap-2 z-10">
+        <button
+          onClick={() => toggleXR("vr")}
+          disabled={!vrSupported && !navigator?.xr}
+          className={`px-4 py-2 rounded shadow ${isXrPresenting && xrMode === "vr" ? "bg-purple-600 text-white" : "bg-gray-800 text-gray-100"} ${(!vrSupported && navigator?.xr) || !navigator?.xr ? "opacity-50 cursor-not-allowed" : "hover:bg-purple-700"}`}
+        >
+          {isXrPresenting && xrMode === "vr" ? "Exit VR" : "Enter VR"}
+        </button>
+        <button
+          onClick={() => toggleXR("ar")}
+          disabled={!arSupported && !navigator?.xr}
+          className={`px-4 py-2 rounded shadow ${isXrPresenting && xrMode === "ar" ? "bg-amber-500 text-black" : "bg-gray-800 text-gray-100"} ${(!arSupported && navigator?.xr) || !navigator?.xr ? "opacity-50 cursor-not-allowed" : "hover:bg-amber-600"}`}
+        >
+          {isXrPresenting && xrMode === "ar" ? "Exit AR" : "Enter AR"}
+        </button>
+      </div>
+
+      <div className="absolute bottom-4 right-4 bg-black/70 text-cyan-100 px-3 py-2 rounded shadow-lg z-10 text-xs font-mono space-y-1">
+        <div className="font-bold">Remote Controls</div>
+        <div>Mouse/Trackpad: Rotate / Pan / Zoom</div>
+        <div>VR: Thumbstick = move/strafe, trigger to select</div>
+        <div>Press headset/system button to exit</div>
+        {!navigator?.xr && <div className="text-red-400">WebXR not available in this browser</div>}
+      </div>
     </div>
   );
 }
