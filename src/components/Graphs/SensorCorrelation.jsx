@@ -976,7 +976,7 @@ const SensorCorrelation = () => {
                 {sensor1Config?.label} Statistics
               </h3>
               
-              {displayData.rawData.length > 0 && (
+              {displayData?.rawData?.length > 0 && (
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <div className="text-sm text-cyan-400">Minimum</div>
@@ -1006,7 +1006,7 @@ const SensorCorrelation = () => {
                 {sensor2Config?.label} Statistics
               </h3>
               
-              {displayData.rawData.length > 0 && (
+              {displayData?.rawData?.length > 0 && (
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <div className="text-sm text-cyan-400">Minimum</div>
