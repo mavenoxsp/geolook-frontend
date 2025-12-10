@@ -184,7 +184,8 @@ function KeyboardLocomotion({ speed = 5 }) {
 }
 
 function BridgeModel({ position }) {
-  const { scene } = useGLTF("/models/railway_bridge_with_a_feeling_of_coziness.glb");
+  // const { scene } = useGLTF("/models/railway_bridge_with_a_feeling_of_coziness.glb");
+  const { scene } = useGLTF("/models/tunnel.glb");
   return (
     <group position={position} scale={1}>
       <primitive object={scene.clone()} />
