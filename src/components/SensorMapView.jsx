@@ -1,15 +1,192 @@
 import React, { Suspense, useRef, useState, useEffect, useMemo } from "react";
-import { Canvas, useFrame } from "@react-three/fiber";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls, Html, useGLTF, TransformControls } from "@react-three/drei";
 import * as THREE from "three";
 import axios from "../utils/axios";
 import { useSensors } from "../context/SensorContext1";
+import { XR, createXRStore } from "@react-three/xr";
+import { useXR } from "@react-three/xr";
 
-// -------- Bridge Model ----------
+if (THREE.Material && !THREE.Material.prototype._patchedOnBuild) {
+  const originalOnBuild = THREE.Material.prototype.onBuild;
+  THREE.Material.prototype.onBuild = function (...args) {
+    if (typeof originalOnBuild === "function") {
+      return originalOnBuild.apply(this, args);
+    }
+    return null;
+  };
+  THREE.Material.prototype._patchedOnBuild = true;
+}
+
+
+const xrStore = createXRStore();
+
+function VRLocomotionController({ speed = 3, deadZone = 0.05 }) {
+  const { player, controllers } = useXR();
+  const vectors = useMemo(
+    () => ({
+      forward: new THREE.Vector3(),
+      right: new THREE.Vector3(),
+      deltaMove: new THREE.Vector3(),
+    }),
+    []
+  );
+
+  useFrame((_, delta) => {
+    if (!player || !controllers.length) return;
+
+    const activeController =
+      controllers.find(({ inputSource }) => inputSource?.handedness === "left") ||
+      controllers.find(({ inputSource }) => inputSource?.gamepad);
+
+    const axes = activeController?.inputSource?.gamepad?.axes || [];
+    const [xAxis = 0, yAxis = 0] = axes;
+    if (Math.abs(xAxis) < deadZone && Math.abs(yAxis) < deadZone) return;
+
+    const { forward, right, deltaMove } = vectors;
+
+    forward.set(0, 0, -1).applyQuaternion(player.quaternion);
+    right.set(1, 0, 0).applyQuaternion(player.quaternion);
+
+    forward.y = 0;
+    right.y = 0;
+    forward.normalize();
+    right.normalize();
+
+    deltaMove
+      .copy(forward)
+      .multiplyScalar(yAxis * speed * delta)
+      .add(right.multiplyScalar(xAxis * speed * delta));
+
+    player.position.add(deltaMove);
+  });
+
+  return null;
+}
+
+function KeyboardLocomotion({ speed = 5 }) {
+  const { player, isPresenting } = useXR();
+  const { camera, controls } = useThree((state) => ({
+    camera: state.camera,
+    controls: state.controls,
+  }));
+  const keysRef = useRef({
+    forward: false,
+    backward: false,
+    left: false,
+    right: false,
+  });
+
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      switch (event.code) {
+        case "KeyW":
+        case "ArrowUp":
+          keysRef.current.forward = true;
+          break;
+        case "KeyS":
+        case "ArrowDown":
+          keysRef.current.backward = true;
+          break;
+        case "KeyA":
+        case "ArrowLeft":
+          keysRef.current.left = true;
+          break;
+        case "KeyD":
+        case "ArrowRight":
+          keysRef.current.right = true;
+          break;
+        default:
+          break;
+      }
+    };
+
+    const handleKeyUp = (event) => {
+      switch (event.code) {
+        case "KeyW":
+        case "ArrowUp":
+          keysRef.current.forward = false;
+          break;
+        case "KeyS":
+        case "ArrowDown":
+          keysRef.current.backward = false;
+          break;
+        case "KeyA":
+        case "ArrowLeft":
+          keysRef.current.left = false;
+          break;
+        case "KeyD":
+        case "ArrowRight":
+          keysRef.current.right = false;
+          break;
+        default:
+          break;
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+    };
+  }, []);
+
+  const vectors = useMemo(
+    () => ({
+      forward: new THREE.Vector3(),
+      right: new THREE.Vector3(),
+      deltaMove: new THREE.Vector3(),
+    }),
+    []
+  );
+
+  useFrame((_, delta) => {
+    if (!camera && !player) return;
+
+    const { forward, backward, left, right } = keysRef.current;
+    const moveZ = (forward ? -1 : 0) + (backward ? 1 : 0);
+    const moveX = (right ? 1 : 0) + (left ? -1 : 0);
+    if (moveX === 0 && moveZ === 0) return;
+
+    const { forward: forwardVec, right: rightVec, deltaMove } = vectors;
+    const orientationSource = isPresenting && player ? player : camera;
+    forwardVec.set(0, 0, -1).applyQuaternion(orientationSource.quaternion);
+    rightVec.set(1, 0, 0).applyQuaternion(orientationSource.quaternion);
+
+    forwardVec.y = 0;
+    rightVec.y = 0;
+    forwardVec.normalize();
+    rightVec.normalize();
+
+    deltaMove
+      .copy(forwardVec)
+      .multiplyScalar(moveZ * speed * delta)
+      .add(rightVec.multiplyScalar(moveX * speed * delta));
+
+    if (deltaMove.lengthSq() === 0) return;
+
+    if (player) {
+      player.position.add(deltaMove);
+    }
+
+    if (!isPresenting) {
+      camera.position.add(deltaMove);
+
+      if (controls) {
+        controls.target.add(deltaMove);
+        controls.update?.();
+      }
+    }
+  });
+
+  return null;
+}
+
 function BridgeModel({ position }) {
   const { scene } = useGLTF("/models/railway_bridge_with_a_feeling_of_coziness.glb");
   return (
-    <group position={position} scale={25}>
+    <group position={position} scale={1}>
       <primitive object={scene.clone()} />
     </group>
   );
@@ -187,6 +364,7 @@ export default function SensorMapView() {
   const { sensors, metaData } = useSensors();
   const [sensorDraggable, setSensorDraggable] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const canvasRef = useRef();
 
   // Default positions (used as fallback)
   const defaultPositions = {
@@ -268,17 +446,22 @@ export default function SensorMapView() {
       >
         {sensorDraggable ? "Lock Sensor Position" : "Change Sensor Position"}
       </button>
+      {/* <button onClick={() => xrStore.enterVR()} className="absolute top-4 left-[20%] border-2 px-4 py-2 rounded-xl text-lg font-semibold hover:cursor-pointer">
+        Enter VR
+      </button> */}
 
       <div className="absolute top-4 right-4 bg-blue-600 text-white px-3 py-2 rounded shadow-lg z-10 font-mono text-sm">
         <div>Last Update: {metaData?.ts_server || "No data"}</div>
         <div>Sensors: {sensors.length}</div>
       </div>
 
-      <Canvas camera={{ position: [8, 8, 12], fov: 50 }}>
-        <ambientLight intensity={0.6} />
-        <directionalLight position={[10, 10, 5]} intensity={1.2} />
+      <Canvas ref={canvasRef} camera={{ position: [8, 8, 12], fov: 50 }} onCreated={({ scene }) => {canvasRef.current = { scene };}}>
+        <XR store={xrStore}>
+          <VRLocomotionController />
+          <KeyboardLocomotion />
+          <ambientLight intensity={0.6} />
+          <directionalLight position={[10, 10, 5]} intensity={1.2} />
 
-        <Suspense fallback={null}>
           <BridgeModel position={[0, 0, 0]} />
 
           {Object.entries(sensorPositions).map(([sensorId, pos]) => {
@@ -296,13 +479,13 @@ export default function SensorMapView() {
               />
             );
           })}
-        </Suspense>
 
-        <OrbitControls
-          enableZoom
-          enablePan
-          enableRotate={!sensorDraggable || !isDragging}
-        />
+          <OrbitControls
+            enableZoom
+            enablePan
+            enableRotate={!sensorDraggable || !isDragging}
+          />
+        </XR>
       </Canvas>
     </div>
   );
