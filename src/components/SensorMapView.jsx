@@ -21,48 +21,85 @@ if (THREE.Material && !THREE.Material.prototype._patchedOnBuild) {
 
 const xrStore = createXRStore();
 
-function VRLocomotionController({ speed = 3, deadZone = 0.05 }) {
-  const { player, controllers } = useXR();
-  const vectors = useMemo(
-    () => ({
-      forward: new THREE.Vector3(),
-      right: new THREE.Vector3(),
-      deltaMove: new THREE.Vector3(),
-    }),
-    []
-  );
+// function VRLocomotionController({ speed = 3, deadZone = 0.05 }) {
+//   const { player, controllers } = useXR();
+//   const vectors = useMemo(
+//     () => ({
+//       forward: new THREE.Vector3(),
+//       right: new THREE.Vector3(),
+//       deltaMove: new THREE.Vector3(),
+//     }),
+//     []
+//   );
+
+//   useFrame((_, delta) => {
+//     if (!player || !controllers.length) return;
+
+//     const activeController =
+//       controllers.find(({ inputSource }) => inputSource?.handedness === "left") ||
+//       controllers.find(({ inputSource }) => inputSource?.gamepad);
+
+//     // const axes = activeController?.inputSource?.gamepad?.axes || [];
+//     // const [xAxis = 0, yAxis = 0] = axes;
+    
+//     if (Math.abs(xAxis) < deadZone && Math.abs(yAxis) < deadZone) return;
+
+//     const { forward, right, deltaMove } = vectors;
+
+//     forward.set(0, 0, -1).applyQuaternion(player.quaternion);
+//     right.set(1, 0, 0).applyQuaternion(player.quaternion);
+
+//     forward.y = 0;
+//     right.y = 0;
+//     forward.normalize();
+//     right.normalize();
+
+//     deltaMove
+//       .copy(forward)
+//       .multiplyScalar(yAxis * speed * delta)
+//       .add(right.multiplyScalar(xAxis * speed * delta));
+
+//     player.position.add(deltaMove);
+//   });
+
+//   return null;
+// }
+function VRLocomotionController({ speed = 5 }) {
+  const { player, controllers, isPresenting } = useXR();
 
   useFrame((_, delta) => {
-    if (!player || !controllers.length) return;
+    if (!isPresenting || !player || controllers.length === 0) return;
 
-    const activeController =
-      controllers.find(({ inputSource }) => inputSource?.handedness === "left") ||
-      controllers.find(({ inputSource }) => inputSource?.gamepad);
+    // Pick left controller (Quest standard)
+    const controller =
+      controllers.find(c => c.inputSource?.handedness === "left") ||
+      controllers[0];
 
-    const axes = activeController?.inputSource?.gamepad?.axes || [];
-    const [xAxis = 0, yAxis = 0] = axes;
-    if (Math.abs(xAxis) < deadZone && Math.abs(yAxis) < deadZone) return;
+    const gamepad = controller?.inputSource?.gamepad;
+    if (!gamepad) return;
 
-    const { forward, right, deltaMove } = vectors;
+    // ✅ X button (Quest)
+    const xPressed = gamepad.buttons[4]?.pressed;
+    if (!xPressed) return;
 
-    forward.set(0, 0, -1).applyQuaternion(player.quaternion);
-    right.set(1, 0, 0).applyQuaternion(player.quaternion);
-
-    forward.y = 0;
-    right.y = 0;
+    // ✅ SAME vector as keyboard W
+    const forward = new THREE.Vector3(0, 0, -1);
+    forward.applyQuaternion(player.quaternion); // face direction
+    forward.y = 0;                              // stay grounded
     forward.normalize();
-    right.normalize();
+  const yPressed = gamepad.buttons[5]?.pressed; // Y button
+if (yPressed) {
+  player.position.addScaledVector(forward, -speed * delta);
+}
 
-    deltaMove
-      .copy(forward)
-      .multiplyScalar(yAxis * speed * delta)
-      .add(right.multiplyScalar(xAxis * speed * delta));
-
-    player.position.add(deltaMove);
+    player.position.addScaledVector(forward, speed * delta);
   });
 
   return null;
 }
+
+
+
 
 function KeyboardLocomotion({ speed = 5 }) {
   const { player, isPresenting } = useXR();
@@ -80,7 +117,7 @@ function KeyboardLocomotion({ speed = 5 }) {
   useEffect(() => {
     const handleKeyDown = (event) => {
       switch (event.code) {
-        case "KeyW":
+        case "KeyE":
         case "ArrowUp":
           keysRef.current.forward = true;
           break;
