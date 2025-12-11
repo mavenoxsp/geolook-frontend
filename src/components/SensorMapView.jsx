@@ -67,36 +67,45 @@ const xrStore = createXRStore();
 function VRLocomotionController({ speed = 5 }) {
   const { player, controllers, isPresenting } = useXR();
 
+  // Helper: move along the same forward vector as keyboard
+  const moveAlongForward = (direction, delta) => {
+    if (!player) return;
+
+    const forward = new THREE.Vector3(0, 0, -1);
+    forward.applyQuaternion(player.quaternion); // Player/headset facing
+    forward.y = 0;                              // Stay on ground plane
+    forward.normalize();
+
+    // direction: +1 = forward, -1 = backward
+    player.position.addScaledVector(forward, direction * speed * delta);
+  };
+
   useFrame((_, delta) => {
     if (!isPresenting || !player || controllers.length === 0) return;
 
-    // Pick left controller (Quest standard)
+    // Prefer left controller (Quest standard)
     const controller =
-      controllers.find(c => c.inputSource?.handedness === "left") ||
+      controllers.find((c) => c.inputSource?.handedness === "left") ||
       controllers[0];
 
     const gamepad = controller?.inputSource?.gamepad;
     if (!gamepad) return;
 
-    // ✅ X button (Quest)
-    const xPressed = gamepad.buttons[4]?.pressed;
-    if (!xPressed) return;
+    const xButton = gamepad.buttons[4]; // X
+    const yButton = gamepad.buttons[5]; // Y
 
-    // ✅ SAME vector as keyboard W
-    const forward = new THREE.Vector3(0, 0, -1);
-    forward.applyQuaternion(player.quaternion); // face direction
-    forward.y = 0;                              // stay grounded
-    forward.normalize();
-  const yPressed = gamepad.buttons[5]?.pressed; // Y button
-if (yPressed) {
-  player.position.addScaledVector(forward, -speed * delta);
-}
-
-    player.position.addScaledVector(forward, speed * delta);
+    if (xButton?.pressed) {
+      // Forward (same as pressing W)
+      moveAlongForward(1, delta);
+    } else if (yButton?.pressed) {
+      // Backward (same as pressing S)
+      moveAlongForward(-1, delta);
+    }
   });
 
   return null;
 }
+
 
 
 
@@ -114,60 +123,114 @@ function KeyboardLocomotion({ speed = 5 }) {
     right: false,
   });
 
-  useEffect(() => {
-    const handleKeyDown = (event) => {
-      switch (event.code) {
-        case "KeyE":
-        case "ArrowUp":
-          keysRef.current.forward = true;
-          break;
-        case "KeyS":
-        case "ArrowDown":
-          keysRef.current.backward = true;
-          break;
-        case "KeyA":
-        case "ArrowLeft":
-          keysRef.current.left = true;
-          break;
-        case "KeyD":
-        case "ArrowRight":
-          keysRef.current.right = true;
-          break;
-        default:
-          break;
-      }
-    };
+  // useEffect(() => {
+  //   const handleKeyDown = (event) => {
+  //     switch (event.code) {
+  //       case "KeyE":
+  //       case "ArrowUp":
+  //         keysRef.current.forward = true;
+  //         break;
+  //       case "KeyS":
+  //       case "ArrowDown":
+  //         keysRef.current.backward = true;
+  //         break;
+  //       case "KeyA":
+  //       case "ArrowLeft":
+  //         keysRef.current.left = true;
+  //         break;
+  //       case "KeyD":
+  //       case "ArrowRight":
+  //         keysRef.current.right = true;
+  //         break;
+  //       default:
+  //         break;
+  //     }
+  //   };
 
-    const handleKeyUp = (event) => {
-      switch (event.code) {
-        case "KeyW":
-        case "ArrowUp":
-          keysRef.current.forward = false;
-          break;
-        case "KeyS":
-        case "ArrowDown":
-          keysRef.current.backward = false;
-          break;
-        case "KeyA":
-        case "ArrowLeft":
-          keysRef.current.left = false;
-          break;
-        case "KeyD":
-        case "ArrowRight":
-          keysRef.current.right = false;
-          break;
-        default:
-          break;
-      }
-    };
+  //   const handleKeyUp = (event) => {
+  //     switch (event.code) {
+  //       case "KeyW":
+  //       case "ArrowUp":
+  //         keysRef.current.forward = false;
+  //         break;
+  //       case "KeyS":
+  //       case "ArrowDown":
+  //         keysRef.current.backward = false;
+  //         break;
+  //       case "KeyA":
+  //       case "ArrowLeft":
+  //         keysRef.current.left = false;
+  //         break;
+  //       case "KeyD":
+  //       case "ArrowRight":
+  //         keysRef.current.right = false;
+  //         break;
+  //       default:
+  //         break;
+  //     }
+  //   };
 
-    window.addEventListener("keydown", handleKeyDown);
-    window.addEventListener("keyup", handleKeyUp);
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-      window.removeEventListener("keyup", handleKeyUp);
-    };
-  }, []);
+  //   window.addEventListener("keydown", handleKeyDown);
+  //   window.addEventListener("keyup", handleKeyUp);
+  //   return () => {
+  //     window.removeEventListener("keydown", handleKeyDown);
+  //     window.removeEventListener("keyup", handleKeyUp);
+  //   };
+  // }, []);
+useEffect(() => {
+  const handleKeyDown = (event) => {
+    switch (event.code) {
+      case "KeyW":
+      case "ArrowUp":
+        keysRef.current.forward = true;
+        break;
+      case "KeyS":
+      case "ArrowDown":
+        keysRef.current.backward = true;
+        break;
+      case "KeyA":
+      case "ArrowLeft":
+        keysRef.current.left = true;
+        break;
+      case "KeyD":
+      case "ArrowRight":
+        keysRef.current.right = true;
+        break;
+      default:
+        break;
+    }
+  };
+
+  const handleKeyUp = (event) => {
+    switch (event.code) {
+      case "KeyW":
+      case "ArrowUp":
+        keysRef.current.forward = false;
+        break;
+      case "KeyS":
+      case "ArrowDown":
+        keysRef.current.backward = false;
+        break;
+      case "KeyA":
+      case "ArrowLeft":
+        keysRef.current.left = false;
+        break;
+      case "KeyD":
+      case "ArrowRight":
+        keysRef.current.right = false;
+        break;
+      default:
+        break;
+    }
+  };
+
+  window.addEventListener("keydown", handleKeyDown);
+  window.addEventListener("keyup", handleKeyUp);
+  return () => {
+    window.removeEventListener("keydown", handleKeyDown);
+    window.removeEventListener("keyup", handleKeyUp);
+  };
+}, []);
 
   const vectors = useMemo(
     () => ({
