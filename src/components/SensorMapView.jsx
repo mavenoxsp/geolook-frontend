@@ -472,28 +472,7 @@ export default function SensorMapView() {
     const canvasRef = useRef();
 
     // Default positions (used as fallback)
-    /*
     const defaultPositions = {
-      temperature: [-4, 31, -6.5],
-      hum: [-3, 2, 1],
-      ws_2: [1, 0.5, -2],
-      wd: [2, 4, 3],
-      press_h: [0, 10, -5],
-      curr_rain: [5, 6, 2],
-      max_WS: [6, 8, -3],
-      VP_mbar: [-6, 3, 2],
-      tilt_NS: [3, 12, 1],
-      tilt_WE: [-2, 15, -4],
-      Strike: [4, 20, 0],
-      bv: [7, 5, 1],
-    };
-      
-    */
-
-    // new cordinates
-    const defaultPositions = {
-
-
         // first row (left, top(center), right)
         tilt_WE: [-7.5, 7, 10],
         Strike: [0, 10, 10],
