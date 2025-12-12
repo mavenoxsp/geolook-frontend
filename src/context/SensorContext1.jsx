@@ -37,11 +37,13 @@ export const SensorProvider1 = ({ children }) => {
       setLoading(true);
       console.log("🔄 Fetching sensor data...");
       
+    //   this api fetch the raw sensors data - backend ?
       const res = await axios.get(`${API_BASE_URL}/api/sensors`, {
         timeout: 10000 // 10 second timeout
       });
       
       const rawData = res.data;
+      console.log("raw data for sensors in context1 is : ",rawData);
       
       // Handle both paginated response and direct array
       let latest;
@@ -58,6 +60,9 @@ export const SensorProvider1 = ({ children }) => {
 
       if (latest) {
         const { sensors: transformedSensors, metaData: transformedMetaData } = transformSensorData(latest);
+
+        //* this is where we are setting the sensor list that will be used by SensorList component-
+        console.log("transformed sensor - in sensorContext1.jsx is : ",transformedSensors);
         setSensors(transformedSensors);
         setMetaData(transformedMetaData);
         console.log("✅ Sensor data loaded:", transformedSensors.length, "sensors");
