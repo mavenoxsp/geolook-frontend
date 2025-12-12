@@ -104,6 +104,7 @@ function VRLocomotionController({ speed = 5 }) {
 
 
 
+
 function KeyboardLocomotion({ speed = 5 }) {
     const { player, isPresenting } = useXR();
     const { camera, controls } = useThree((state) => ({
