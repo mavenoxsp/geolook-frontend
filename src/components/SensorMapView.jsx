@@ -490,23 +490,34 @@ export default function SensorMapView() {
       
     */
 
+    // new cordinates
     const defaultPositions = {
-        // left side
-        temperature: [-4.5, 8, -30], // -3.5 is for x axis - is for left and + is for right, 5.5 is y axis height , and -20 is z plane -- towards user or away from user.
-        hum: [-4.5, 6.5, -20],
-        ws_2: [-4.5, 6.5, -10],
-        wd: [-4.5, 6.5, 0],
-        press_h: [-4.5, 6.5, 10],
-        curr_rain: [-4.5, 6.5, 20],
 
-        // right side
-        max_WS: [4.5, 6.5, -30],
-        VP_mbar: [4.5, 6.5, -20],
-        tilt_NS: [4.5, 6.5, -10],
-        tilt_WE: [4.5, 6.5, 0],
-        Strike: [4.5, 6.5, 10],
-        bv: [4.5, 6.5, 20],
+
+        // first row (left, top(center), right)
+        tilt_WE: [-7.5, 7, 10],
+        Strike: [0, 10, 10],
+        bv: [7.5, 7, 10], 
+
+        // second row
+        max_WS: [-7.5, 7, -10],
+        VP_mbar: [0, 10, -10],
+        tilt_NS: [7.5, 7, -10],
+
+
+        // thrid row 
+        wd: [-7.5, 7, -30],
+        press_h: [0, 10, -30],
+        curr_rain: [7.5, 7, -30], 
+
+
+        // fourth row
+        temperature: [-7.5, 7, -50], 
+        hum: [0, 10, -50], 
+        ws_2: [7.5, 7, -50], 
+
     };
+
 
     const [sensorPositions, setSensorPositions] = useState(defaultPositions);
     //   const [isLoading, setIsLoading] = useState(true);
