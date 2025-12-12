@@ -5,7 +5,9 @@ import tailwindcss from '@tailwindcss/vite'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(),tailwindcss()],
-  server:{
-    allowedHosts:true
+server: {
+    host: true, // allows external access
+    allowedHosts: ['mit-wpu.geolook.in'], // FIX
+    port: 5173,
   }
 })
